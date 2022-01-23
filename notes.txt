@@ -1,4 +1,4 @@
-Create a Pyth Tech index
+Create a Pyth Tech index for example
 
 Available companies on devnet:
 - Amazon: Equity.US.AMZN/USD	
