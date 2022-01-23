@@ -1,7 +1,7 @@
 import './App.css';
 import { useState } from 'react';
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
-import { Program, Provider } from '@project-serum/anchor';
+import { Program, Provider, web3 } from '@project-serum/anchor';
 import idl from './idl.json';
 import screenshot from './programLogScreenshot.png';
 
@@ -12,6 +12,9 @@ require('@solana/wallet-adapter-react-ui/styles.css');
 
 const wallets = [ getPhantomWallet() ]
 
+const { SystemProgram, Keypair } = web3;
+const storageAccount = Keypair.generate();
+
 const opts = {
   preflightCommitment: "processed"
 }
@@ -19,6 +22,9 @@ const programIDString = "CxqWzWVdHG9YffvaRUaMnbbeyb7XoHNtxzLNaUpkoyyx";
 const programID = new PublicKey(programIDString);
 
 function App() {
+  const [value, setValue] = useState('');
+  const [dataList, setDataList] = useState([]);
+  const [input, setInput] = useState('');
   const [inputPyth, setInputPyth] = useState('');
   const wallet = useWallet()
 
@@ -35,6 +41,41 @@ function App() {
       connection, wallet, opts.preflightCommitment,
     );
     return provider;
+  }
+
+  async function initializeStorageAccount() {    
+    const provider = await getProvider();
+    /* create the program interface combining the idl, program ID, and provider */
+    const program = new Program(idl, programID, provider);
+    try {
+      /* interact with the program via rpc */
+      await program.rpc.initializeStorageAccount({
+        accounts: {
+          storageAccount: storageAccount.publicKey,
+          user: provider.wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        },
+        signers: [storageAccount]
+      });
+    } catch (err) {
+        console.log("Transaction error: ", err);
+      }
+  }
+
+  async function addPythSymbol() {
+    if (!input) return
+    const provider = await getProvider();
+    const program = new Program(idl, programID, provider);
+    await program.rpc.addPythSymbol(input, {
+      accounts: {
+        storageAccount: storageAccount.publicKey
+      }
+    });
+
+    // const storage_account = await program.account.storageAccount.fetch(storageAccount.publicKey);
+    // console.log('account: ', storage_account);
+    // setDataList(storage_account.pyth_symbols);
+    // setInput('');
   }
 
   async function showPythPrice() {
@@ -57,7 +98,7 @@ function App() {
         <div>
           {
             <div>
-              <h1>Let's get some Pyth data shown on Solana</h1>
+              <h1>#1 Let's get some Pyth data shown on Solana</h1>
               <h2>Copy the public key of price account from here:</h2>
               <a href="https://pyth.network/developers/accounts/?cluster=devnet#" target="_blank" rel="noreferrer">Pyth Network - Accounts on Devnet</a>
             </div>
@@ -82,6 +123,29 @@ function App() {
               <p>After around 30 sec you will se a new entry. Open the new entry and scroll down to the "Program Logs".</p>
               <p>There you will find something similar to this:</p>
               <img src={screenshot} alt="Screenshot of program log on Solana Devnet"/>
+            </div>
+          }
+
+          {
+            <div>
+              <h1>#2 Let's use multiple Pyth accounts to do some fun stuff</h1>
+              <h2>Initialize the storage account owned by the program</h2>
+              {
+                <button onClick={initializeStorageAccount}>Initialize</button>
+              }
+
+              <h2>Add Pyth symbols to the storage</h2>
+              <input
+                placeholder="Add new Pyth symbol"
+                onChange={e => setInput(e.target.value)}
+                value={input}
+              />
+              <button onClick={addPythSymbol}>Add symbol</button>
+
+              {/* {
+                dataList.map((d, i) => <h4 key={i}>{d}</h4>)
+              } */}
+
             </div>
           }
 
