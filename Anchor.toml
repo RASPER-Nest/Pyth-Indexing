@@ -1,0 +1,13 @@
+[programs.localnet]
+pyth_indexing = "CxqWzWVdHG9YffvaRUaMnbbeyb7XoHNtxzLNaUpkoyyx"
+
+[registry]
+url = "https://anchor.projectserum.com"
+
+[provider]
+# cluster = "localnet"
+cluster = "devnet"
+wallet = "/home/flashover/.config/solana/id.json"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
