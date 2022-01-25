@@ -26,7 +26,8 @@ function App() {
   const [dataList, setDataList] = useState([]);
   const [input, setInput] = useState('');
   const [inputPyth, setInputPyth] = useState('');
-  const wallet = useWallet()
+  const [inputPythMapping, setInputPythMapping] = useState('');
+  const wallet = useWallet();
 
   async function getProvider() {
     /* create the provider and return it to the caller */
@@ -83,7 +84,15 @@ function App() {
     const provider = await getProvider();
     const program = new Program(idl, programID, provider);
     const priceAccount = new PublicKey(inputPyth);
-    await program.rpc.showPythPrice({accounts: { price: priceAccount },});
+    await program.rpc.showPythPrice({accounts: { pythAccount: priceAccount },});
+  }
+
+  async function showPythMapping() {
+    if (!inputPythMapping) return
+    const provider = await getProvider();
+    const program = new Program(idl, programID, provider);
+    const mappingAccount = new PublicKey(inputPythMapping);
+    await program.rpc.showPythMapping({accounts: { pythAccount: mappingAccount },});
   }
 
   if (!wallet.connected) {
@@ -146,6 +155,18 @@ function App() {
                 dataList.map((d, i) => <h4 key={i}>{d}</h4>)
               } */}
 
+            </div>
+          }
+
+          {
+            <div>
+              <h2>Paste here the Pyth mapping account public key</h2>
+              <input
+                placeholder="Add public key of pyth mapping account"
+                onChange={e => setInputPythMapping(e.target.value)}
+                value={inputPythMapping}
+              />
+              <button onClick={showPythMapping}>Fetch Pyth mapping account</button>
             </div>
           }
 
