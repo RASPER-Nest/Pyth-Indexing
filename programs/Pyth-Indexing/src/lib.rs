@@ -2,13 +2,16 @@ use anchor_lang::prelude::*;
 mod pc;
 use pc::Price;
 use pc::Product;
+use pc::Mapping;
+use pc::PriceStatus;
+use pc::MAGIC;
+use pc:: VERSION_2;
+use pc::AccountType;
 
 declare_id!("CxqWzWVdHG9YffvaRUaMnbbeyb7XoHNtxzLNaUpkoyyx");
 
 #[program]
 pub mod pyth_indexing {
-    use crate::pc::Mapping;
-
     use super::*;
 
     pub fn initialize_storage_account(_ctx: Context<Initialize>) -> ProgramResult {
@@ -23,6 +26,40 @@ pub mod pyth_indexing {
 
         for symbol in storage.pyth_symbols.iter() {
             msg!("I have this symbol: {}", symbol);
+        }
+
+        let pyth_product = &ctx.accounts.pyth_prod_acnt;
+        let product_account = Product::load(&pyth_product).unwrap();
+        let pyth_price = &ctx.accounts.pyth_price_acnt;
+        let price_account = Price::load(&pyth_price).unwrap();
+
+        // Security checks
+        if product_account.magic != MAGIC {
+            msg!("Pyth product account provided is not a valid Pyth account");
+            return Err(ProgramError::InvalidArgument.into());
+        }
+        if product_account.atype != AccountType::Product as u32 {
+            msg!("Pyth product account provided is not a valid Pyth product account");
+            return Err(ProgramError::InvalidArgument.into());
+        }
+        if product_account.ver != VERSION_2 {
+            msg!("Pyth product account provided has a different version than the Pyth client");
+            return Err(ProgramError::InvalidArgument.into());
+        }
+        if !product_account.px_acc.is_valid() {
+            msg!("Pyth product price account is invalid");
+            return Err(ProgramError::InvalidArgument.into());
+        }
+    
+        let pyth_price_pubkey = Pubkey::new(&pyth_product.px_acc.val);
+        if &pyth_price_pubkey != pyth_price_info.key {
+            msg!("Pyth product price account does not match the Pyth price provided");
+            return Err(ProgramError::InvalidArgument.into());
+        }
+
+        for product in mapping_account.products.iter() {
+            let product_pkey = Pubkey::new( &product.val );
+            let product_account = Product::load(&product_pkey).unwrap();
         }
 
         Ok(())
@@ -91,6 +128,8 @@ pub struct Initialize<'info> {
 // Add symbols to storage
 #[derive(Accounts)]
 pub struct Add<'info> {
+    pub pyth_prod_acnt : AccountInfo<'info>,
+    pub pyth_price_acnt : AccountInfo<'info>,
     #[account(mut)]
     pub storage_account: Account<'info, StorageAccount>,
 }
@@ -99,5 +138,15 @@ pub struct Add<'info> {
 #[account]
 pub struct StorageAccount {
     pub pyth_symbols: Vec<String>,
-    // pub arithmetic_mean_price: f32, 
+    pub pyth_elements: Vec<PythPrice>,
+}
+
+// Pyth struct
+#[account]
+pub struct PythPrice {
+    pub symbol: String,
+    pub expo: i32,
+    pub price: i64,
+    pub conf: u64,
+    pub status: PriceStatus, 
 }

@@ -1,7 +1,9 @@
 use crate::*;
 use anchor_lang::prelude::AccountInfo;
-use bytemuck::{cast_slice_mut, from_bytes_mut, try_cast_slice_mut, Pod, Zeroable};
+use bytemuck::{cast_slice_mut, cast_slice, from_bytes, try_cast_slice, from_bytes_mut, try_cast_slice_mut, Pod, PodCastError, Zeroable};
 use std::cell::RefMut;
+use borsh::{BorshDeserialize, BorshSerialize};
+use std::mem::size_of;
 
 #[derive(Default, Copy, Clone, Debug)]
 #[repr(C)]
@@ -9,7 +11,7 @@ pub struct AccKey {
     pub val: [u8; 32],
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, BorshDeserialize, BorshSerialize)]
 #[repr(C)]
 pub enum PriceStatus {
     Unknown,
@@ -125,6 +127,17 @@ pub const PROD_ACCT_SIZE : usize = 512;
 pub const PROD_HDR_SIZE  : usize = 48;
 pub const PROD_ATTR_SIZE : usize = PROD_ACCT_SIZE - PROD_HDR_SIZE;
 
+/// The type of Pyth account determines what data it contains
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub enum AccountType
+{
+  Unknown,
+  Mapping,
+  Product,
+  Price
+}
+
 /// Mapping accounts form a linked-list containing the listing of all products on Pyth.
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -207,3 +220,37 @@ unsafe impl Zeroable for Product {}
 
 #[cfg(target_endian = "little")]
 unsafe impl Pod for Product {}
+
+
+#[derive(Copy, Clone)]
+struct AccKeyU64
+{
+  pub val: [u64;4]
+}
+
+#[cfg(target_endian = "little")]
+unsafe impl Zeroable for AccKeyU64 {}
+
+#[cfg(target_endian = "little")]
+unsafe impl Pod for AccKeyU64 {}
+
+impl AccKey
+{
+  pub fn is_valid( &self ) -> bool  {
+    match load::<AccKeyU64>( &self.val ) {
+      Ok(k8) => k8.val[0]!=0 || k8.val[1]!=0 || k8.val[2]!=0 || k8.val[3]!=0,
+      Err(_) => false,
+    }
+  }
+}
+
+fn load<T: Pod>(data: &[u8]) -> Result<&T, PodCastError> {
+    let size = size_of::<T>();
+    if data.len() >= size {
+      Ok(from_bytes(cast_slice::<u8, u8>(try_cast_slice(
+        &data[0..size],
+      )?)))
+    } else {
+      Err(PodCastError::SizeMismatch)
+    }
+  }

@@ -1,9 +1,15 @@
 import './App.css';
-import { useState } from 'react';
+import { useState, React } from 'react';
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { Program, Provider, web3 } from '@project-serum/anchor';
 import idl from './idl.json';
 import screenshot from './programLogScreenshot.png';
+import { parseMappingData, Magic, Version } from './PythTypes.ts';
+
+import TextField from '@mui/material/TextField';
+import Autocomplete from '@mui/material/Autocomplete';
+import Chip from '@mui/material/Chip';
+import Stack from '@mui/material/Stack';
 
 import { getPhantomWallet } from '@solana/wallet-adapter-wallets';
 import { useWallet, WalletProvider, ConnectionProvider } from '@solana/wallet-adapter-react';
@@ -27,6 +33,7 @@ function App() {
   const [input, setInput] = useState('');
   const [inputPyth, setInputPyth] = useState('');
   const [inputPythMapping, setInputPythMapping] = useState('');
+  const [inputAssetName, setInputAssetName] = useState('');
   const wallet = useWallet();
 
   async function getProvider() {
@@ -93,6 +100,39 @@ function App() {
     const program = new Program(idl, programID, provider);
     const mappingAccount = new PublicKey(inputPythMapping);
     await program.rpc.showPythMapping({accounts: { pythAccount: mappingAccount },});
+  }
+
+  async function getPythMappingAccount() {
+
+    const url = clusterApiUrl('devnet')
+    const oraclePublicKey = 'BmA9Z6FjioHJPpjT39QazZyhDRUdZy2ezwx4GiDdE2u2'
+    const connection = new Connection(url)
+    const publicKey = new PublicKey(oraclePublicKey)
+    connection
+      .getAccountInfo(publicKey)
+      .then((accountInfo) => {
+        if (accountInfo && accountInfo.data) {
+          const mapping = parseMappingData(accountInfo.data)
+          console.log(mapping)
+          expect(mapping.magic).toBe(Magic)
+          expect(mapping.version).toBe(Version)
+        } else {
+          console.log("Shit happened: No Mapping account")
+        }
+      })
+
+    // const provider = await getProvider();
+    // const oraclePublicKey = 'BmA9Z6FjioHJPpjT39QazZyhDRUdZy2ezwx4GiDdE2u2'
+    // const connection = new Connection(url)
+    // const publicKey = new PublicKey(oraclePublicKey)
+
+    // const program = new Program(idl, programID, provider);
+    // const mappingAccount = new PublicKey(inputPythMapping);
+    // await program.rpc.showPythMapping({accounts: { pythAccount: mappingAccount },});
+  }
+
+  function confirmAssetSelection() {
+    console.log("These are the selected assets: \n", inputAssetName);
   }
 
   if (!wallet.connected) {
@@ -170,6 +210,49 @@ function App() {
             </div>
           }
 
+          {       
+            <div>
+              <h1>#3 Fetch the mapping account</h1>
+              {
+                <button onClick={getPythMappingAccount}>Fetch Mapping Account</button>
+              }
+
+            </div>
+          }
+          
+          {
+            <div>
+              <h1>#4 Select the assets you want</h1>
+              {
+                <div style={{ display: 'flex', justifyContent: 'center'}}> 
+                  <Autocomplete
+                    multiple
+                    options={pythAssets}
+                    getOptionLabel={(option) => option.symbol}
+                    onChange={(event, value) => {
+                      setInputAssetName(value)
+                    }}
+                    sx={{ width: 300 }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="standard"
+                        label="Assets"
+                      />
+                    )}
+                  />
+                </div>
+              }
+              {
+                <div>
+                  {
+                    <button onClick={confirmAssetSelection}>Confirm asset selection</button>
+                  }
+                </div>
+              }
+            </div>
+          }
+
         </div>
       </div>
     );
@@ -187,3 +270,18 @@ const AppWithProvider = () => (
 )
 
 export default AppWithProvider; 
+
+
+// Pyth assets
+const pythAssets = [
+  { symbol: 'Crypto.LUNA/USD', productPubKey: '25tCF4ChvZyNP67xwLuYoAKuoAcSV13xrmP9YTwSPnZY' },
+  { symbol: 'FX.USD/CHF', productPubKey: '2UE6gC5FuVPWuKqZamRfcEc5MjtvpRoW6L1anCGW4skS' },
+  { symbol: 'Crypto.ETH/USD', productPubKey: '2ciUuGZiee5macAMeQ7bHGTJtwcYTgnt6jdmQnnKZrfu' },
+  { symbol: 'Crypto.BNB/USD', productPubKey: '2weC6fjXrfaCLQpqEzdgBHpz6yVNvmSN133m7LDuZaDb' },
+  { symbol: 'Crypto.ADA/USD', productPubKey: '31HTfSgBs7PJmY6YgRKaA3ionPmBHrzPnbwZSqRGs2Zx' },
+  { symbol: 'Crypto.RAY/USD', productPubKey: '3BtxtRxitVDcsd7pPUWUnFm9KvmNDy9usS4gE6pUFhpH' },
+  { symbol: 'FX.GBP/USD', productPubKey: '3K2hkXeoxNeRgjGTU6unJ4WSRaZ3FZxhABTgk8wcbPpX' },
+  { symbol: 'Crypto.SOL/USD', productPubKey: '3Mnn2fX6rQyUsyELYms1sBJyChWofzSNRoqYzvgMVz5E' },
+  { symbol: 'Crypto.BTC/USD', productPubKey: '3m1y5h2uv7EQL3KaJZehvAJa4yDNvgc5yAdL9KPMKwvk' },
+  { symbol: 'Crypto.DOT/USD', productPubKey: '4Yprdh5xpNgpsuDTPmfxn1ky7YjXmioZ4h8vGdCaBDsE' }
+];
