@@ -5,6 +5,18 @@ use std::cell::RefMut;
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::mem::size_of;
 
+// Price struct similar to Pyth price account struct
+#[derive(Copy, Clone, Debug, BorshDeserialize, BorshSerialize)]
+#[repr(C)]
+pub struct PriceStruct {
+    pub expo: i32,
+    pub price: i64,
+    // ToDos:
+    // pub conf: u64,
+    // pub status: PriceStatus, 
+    // time stamp
+}
+
 #[derive(Default, Copy, Clone, Debug)]
 #[repr(C)]
 pub struct AccKey {

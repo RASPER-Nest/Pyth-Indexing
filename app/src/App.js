@@ -1,10 +1,12 @@
 import './App.css';
 import { useState, React } from 'react';
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
+import { Connection, PublicKey, clusterApiUrl, Cluster } from '@solana/web3.js';
 import { Program, Provider, web3 } from '@project-serum/anchor';
 import idl from './idl.json';
 import screenshot from './programLogScreenshot.png';
 import { parseMappingData, Magic, Version } from './PythTypes.ts';
+import { PythConnection } from './PythConnection'
+import { getPythProgramKeyForCluster } from './cluster'
 
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -20,12 +22,23 @@ const wallets = [ getPhantomWallet() ]
 
 const { SystemProgram, Keypair } = web3;
 const storageAccount = Keypair.generate();
+const storageAccountIndex = Keypair.generate();
 
 const opts = {
   preflightCommitment: "processed"
 }
 const programIDString = "CxqWzWVdHG9YffvaRUaMnbbeyb7XoHNtxzLNaUpkoyyx";
 const programID = new PublicKey(programIDString);
+
+const SOLANA_CLUSTER_NAME: Cluster = 'devnet'
+const connection = new Connection(clusterApiUrl(SOLANA_CLUSTER_NAME))
+const pythPublicKey = getPythProgramKeyForCluster(SOLANA_CLUSTER_NAME)
+
+const pythConnection = new PythConnection(connection, pythPublicKey)
+
+var CronJob = require('cron').CronJob;
+
+var priceIterations = 0;
 
 function App() {
   const [value, setValue] = useState('');
@@ -34,7 +47,13 @@ function App() {
   const [inputPyth, setInputPyth] = useState('');
   const [inputPythMapping, setInputPythMapping] = useState('');
   const [inputAssetName, setInputAssetName] = useState('');
+  const [indexName, setIndexName] = useState('');
+  const [readBackIndexName, setReadBackIndexName] = useState('');
+  const [readBackPubKeys, setReadBackPubKeys] = useState([]);
   const wallet = useWallet();
+
+  console.log('index name: ', readBackIndexName);
+  console.log('pub keys: ', readBackPubKeys);
 
   async function getProvider() {
     /* create the provider and return it to the caller */
@@ -132,8 +151,85 @@ function App() {
   }
 
   function confirmAssetSelection() {
-    console.log("These are the selected assets: \n", inputAssetName);
+    console.log("These are the selected assets: \n", inputAssetName.map(element => element.productPubKey));
   }
+
+  async function initIndexStorage() {   
+    const provider = await getProvider();
+    /* create the program interface combining the idl, program ID, and provider */
+    const program = new Program(idl, programID, provider);
+    try {
+      /* interact with the program via rpc */
+      await program.rpc.initIndexStorage({
+        accounts: {
+          storageAccount: storageAccountIndex.publicKey,
+          user: provider.wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        },
+        signers: [storageAccountIndex]
+      });
+    } catch (err) {
+        console.log("Transaction error: ", err);
+      }
+  }
+
+  async function nameAndPubkeysIndex(){
+    if(!indexName) return
+    const provider = await getProvider();
+    const program = new Program(idl, programID, provider);
+    var pubkeys = inputAssetName.map(element => element.productPubKey);
+    await program.rpc.nameAndPubkeysIndex(
+      indexName,
+      pubkeys,
+      {accounts: {
+        storageAccount: storageAccountIndex.publicKey,
+      },
+    });
+
+    const storage_account = await program.account.indexStorageAccount.fetch(storageAccountIndex.publicKey);
+    console.log('account: ', storage_account);
+    setReadBackIndexName(storage_account.indexName);
+    setReadBackPubKeys(storage_account.pubKeys);
+  }
+
+  function getPriceUpdates(){
+    jobEveryMinute.start();
+  }
+
+  var matchedPriceUpdateIterations = 2*readBackPubKeys.length;
+  var jobEveryMinute = new CronJob('* * * * *', function() {
+    console.log('You will see this message every minute');
+
+    pythConnection.onPriceChange((product, price) => {
+      // sample output:
+      // SRM/USD: $8.68725 ±$0.0131
+      if (price.price && price.confidence) {
+        readBackPubKeys.find(element => {
+          if (element.includes(price.productAccountKey.toString())) {
+            priceIterations++;
+            console.log("Yep, found it!")
+            if( priceIterations == matchedPriceUpdateIterations ) {
+              pythConnection.stop();
+              priceIterations = 0;
+              return true;
+            }
+            return true;
+          }
+        })
+    
+      } else {
+        // tslint:disable-next-line:no-console
+        // console.log(`${product.symbol}: price currently unavailable`)
+      }
+    })
+
+    pythConnection.start();
+
+  }, null, false, 'America/Los_Angeles');
+  
+  // tslint:disable-next-line:no-console
+  // console.log('Reading from Pyth price feed...')
+  // pythConnection.start()
 
   if (!wallet.connected) {
     return (
@@ -222,7 +318,12 @@ function App() {
           
           {
             <div>
-              <h1>#4 Select the assets you want</h1>
+              <h1>#4 Create your own index</h1>
+              <h2>Initialize the program and create some storage space on the Solana blockchain</h2>
+              {
+                <button onClick={initIndexStorage}>Initialize</button>
+              }
+              <h2>Select your assets</h2>
               {
                 <div style={{ display: 'flex', justifyContent: 'center'}}> 
                   <Autocomplete
@@ -250,6 +351,25 @@ function App() {
                   }
                 </div>
               }
+              <h2>Give your index a name and save your asset selection on the Solana blockchain</h2>
+              <div>
+                <input
+                  placeholder="Give your index a name"
+                  onChange={e => setIndexName(e.target.value)}
+                  value={indexName}
+                />
+                <button onClick={nameAndPubkeysIndex}>Save</button>
+              </div>
+              <h2>Start the price update</h2>
+              {
+                <div>
+                  {
+                    <button onClick={getPriceUpdates}>Update prices</button>
+                  }
+                </div>
+              }
+              <h2>Show price development</h2>
+
             </div>
           }
 

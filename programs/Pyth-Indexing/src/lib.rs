@@ -7,12 +7,73 @@ use pc::PriceStatus;
 use pc::MAGIC;
 use pc:: VERSION_2;
 use pc::AccountType;
+use pc::PriceStruct;
 
 declare_id!("CxqWzWVdHG9YffvaRUaMnbbeyb7XoHNtxzLNaUpkoyyx");
 
 #[program]
 pub mod pyth_indexing {
     use super::*;
+
+    // Pyth index
+    // pub fn init_index_storage(f_ctx: Context<InitIndexStorage>, f_index_name: String, f_pub_keys: Vec<String>) -> ProgramResult {
+        pub fn init_index_storage(f_ctx: Context<InitIndexStorage>) -> ProgramResult {
+        // let index_storage = &mut f_ctx.accounts.storage_account;
+
+        // let index_name_copy = f_index_name.clone();
+        // index_storage.index_name = index_name_copy;
+
+        // let pub_keys_copy = f_pub_keys.clone();
+        // index_storage.pub_keys = pub_keys_copy;
+
+        // msg!("I have the following public keys:");
+        // for pub_key in index_storage.pub_keys.iter() {
+        //     msg!("Pub Key: {:?}", pub_key);
+        // }
+        
+
+        Ok(())
+    }
+
+    pub fn name_and_pubkeys_index(f_ctx: Context<InitIndex>, f_index_name: String, f_pub_keys: Vec<String>) -> ProgramResult {
+        let index_storage = &mut f_ctx.accounts.storage_account;
+
+        let index_name_copy = f_index_name.clone();
+        index_storage.index_name = index_name_copy;
+
+        let pub_keys_copy = f_pub_keys.clone();
+        index_storage.pub_keys = pub_keys_copy;
+
+        msg!("The name of the index is: {:?}", index_storage.index_name);
+        msg!("I have the following public keys:");
+        for pub_key in index_storage.pub_keys.iter() {
+            msg!("Pub Key: {:?}", pub_key);
+        }
+
+        Ok(())
+    }
+
+    pub fn update_index(f_ctx: Context<UpdateIndex>) -> ProgramResult {
+        let index_storage = &mut f_ctx.accounts.storage_account;
+
+        let pyth_price_account = &mut f_ctx.accounts.pyth_price;
+        let pyth_price = Price::load(&pyth_price_account).unwrap();
+
+        let price_for_storage = PriceStruct {
+            expo: pyth_price.expo,
+            price : pyth_price.agg.price,
+        };
+
+        // index_storage.prices.push(price_for_storage);
+
+        // msg!("I have the following prices:");
+        // for price in index_storage.prices.iter() {
+        //     msg!("Exponent: {:?}", price.expo);
+        //     msg!("Price: {:?}", price.price);
+        // }
+
+        Ok(())
+    }
 
     pub fn initialize_storage_account(_ctx: Context<Initialize>) -> ProgramResult {
         Ok(())
@@ -49,17 +110,6 @@ pub mod pyth_indexing {
         if !product_account.px_acc.is_valid() {
             msg!("Pyth product price account is invalid");
             return Err(ProgramError::InvalidArgument.into());
-        }
-    
-        let pyth_price_pubkey = Pubkey::new(&pyth_product.px_acc.val);
-        if &pyth_price_pubkey != pyth_price_info.key {
-            msg!("Pyth product price account does not match the Pyth price provided");
-            return Err(ProgramError::InvalidArgument.into());
-        }
-
-        for product in mapping_account.products.iter() {
-            let product_pkey = Pubkey::new( &product.val );
-            let product_account = Product::load(&product_pkey).unwrap();
         }
 
         Ok(())
@@ -109,6 +159,39 @@ pub mod pyth_indexing {
 
 }
 
+// Init Index storage account
+#[derive(Accounts)]
+pub struct InitIndexStorage<'info> {
+    #[account(init, payer = user, space = 1000)]
+    pub storage_account: Account<'info, IndexStorageAccount>,
+    #[account(mut)]
+    pub user: Signer<'info>,
+    pub system_program: Program <'info, System>,
+}
+
+// Update index
+#[derive(Accounts)]
+pub struct InitIndex<'info> {
+    #[account(mut)]
+    pub storage_account: Account<'info, IndexStorageAccount>,
+}
+
+// Update index
+#[derive(Accounts)]
+pub struct UpdateIndex<'info> {
+    pub pyth_price: AccountInfo<'info>,
+    #[account(mut)]
+    pub storage_account: Account<'info, IndexStorageAccount>,
+}
+
+// Index storage
+#[account]
+pub struct IndexStorageAccount {
+    pub index_name: String,
+    pub pub_keys: Vec<String>,
+    pub prices: Vec<i32>,
+}
+
 // Pyth struct
 #[derive(Accounts)]
 pub struct Pyth<'info> {
@@ -138,7 +221,7 @@ pub struct Add<'info> {
 #[account]
 pub struct StorageAccount {
     pub pyth_symbols: Vec<String>,
-    pub pyth_elements: Vec<PythPrice>,
+    // pub pyth_elements: Vec<PythPrice>,
 }
 
 // Pyth struct
@@ -149,4 +232,5 @@ pub struct PythPrice {
     pub price: i64,
     pub conf: u64,
     pub status: PriceStatus, 
+    // add time stamp
 }
