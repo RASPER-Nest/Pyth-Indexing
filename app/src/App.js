@@ -45,7 +45,7 @@ function App() {
   const [readBackIndexName, setReadBackIndexName] = useState('');
   const [readBackPubKeys, setReadBackPubKeys] = useState([]);
   const [avgPriceChartData, setAvgPriceChartData] = useState([{price: null, timestamp: null}]);
-  const [dataLoadingStatus, setDataLoadingStatus] = useState('');
+  const [dataLoadingStatus, setDataLoadingStatus] = useState(0);
   const wallet = useWallet();
 
   async function getProvider() {
