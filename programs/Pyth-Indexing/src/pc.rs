@@ -1,7 +1,21 @@
 use crate::*;
 use anchor_lang::prelude::AccountInfo;
-use bytemuck::{cast_slice_mut, from_bytes_mut, try_cast_slice_mut, Pod, Zeroable};
+use bytemuck::{cast_slice_mut, cast_slice, from_bytes, try_cast_slice, from_bytes_mut, try_cast_slice_mut, Pod, PodCastError, Zeroable};
 use std::cell::RefMut;
+use borsh::{BorshDeserialize, BorshSerialize};
+use std::mem::size_of;
+
+// Price struct similar to Pyth price account struct
+#[derive(Copy, Clone, Debug, BorshDeserialize, BorshSerialize)]
+#[repr(C)]
+pub struct PriceStruct {
+    pub expo: i32,
+    pub price: i64,
+    // ToDos:
+    // pub conf: u64,
+    // pub status: PriceStatus, 
+    // time stamp
+}
 
 #[derive(Default, Copy, Clone, Debug)]
 #[repr(C)]
@@ -9,7 +23,7 @@ pub struct AccKey {
     pub val: [u8; 32],
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, BorshDeserialize, BorshSerialize)]
 #[repr(C)]
 pub enum PriceStatus {
     Unknown,
@@ -116,3 +130,139 @@ unsafe impl Zeroable for Price {}
 
 #[cfg(target_endian = "little")]
 unsafe impl Pod for Price {}
+
+pub const MAGIC          : u32   = 0xa1b2c3d4;
+pub const VERSION_2      : u32   = 2;
+pub const VERSION        : u32   = VERSION_2;
+pub const MAP_TABLE_SIZE : usize = 640;
+pub const PROD_ACCT_SIZE : usize = 512;
+pub const PROD_HDR_SIZE  : usize = 48;
+pub const PROD_ATTR_SIZE : usize = PROD_ACCT_SIZE - PROD_HDR_SIZE;
+
+/// The type of Pyth account determines what data it contains
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub enum AccountType
+{
+  Unknown,
+  Mapping,
+  Product,
+  Price
+}
+
+/// Mapping accounts form a linked-list containing the listing of all products on Pyth.
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Mapping
+{
+  /// pyth magic number
+  pub magic      : u32,
+  /// program version
+  pub ver        : u32,
+  /// account type
+  pub atype      : u32,
+  /// account used size
+  pub size       : u32,
+  /// number of product accounts
+  pub num        : u32,
+  pub unused     : u32,
+  /// next mapping account (if any)
+  pub next       : AccKey,
+  pub products   : [AccKey;MAP_TABLE_SIZE]
+}
+
+impl Mapping {
+    #[inline]
+    pub fn load<'a>(mapping_account: &'a AccountInfo) -> Result<RefMut<'a, Mapping>, ProgramError> {
+        let account_data: RefMut<'a, [u8]>;
+        let state: RefMut<'a, Self>;
+
+        account_data = RefMut::map(mapping_account.try_borrow_mut_data().unwrap(), |data| *data);
+
+        state = RefMut::map(account_data, |data| {
+            from_bytes_mut(cast_slice_mut::<u8, u8>(try_cast_slice_mut(data).unwrap()))
+        });
+        Ok(state)
+    }
+}
+
+#[cfg(target_endian = "little")]
+unsafe impl Zeroable for Mapping {}
+
+#[cfg(target_endian = "little")]
+unsafe impl Pod for Mapping {}
+
+/// Product accounts contain metadata for a single product, such as its symbol ("Crypto.BTC/USD")
+/// and its base/quote currencies.
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Product
+{
+  /// pyth magic number
+  pub magic      : u32,
+  /// program version
+  pub ver        : u32,
+  /// account type
+  pub atype      : u32,
+  /// price account size
+  pub size       : u32,
+  /// first price account in list
+  pub px_acc     : AccKey,
+  /// key/value pairs of reference attr.
+  pub attr       : [u8;PROD_ATTR_SIZE]
+}
+
+impl Product {
+    #[inline]
+    pub fn load<'a>(product_account: &'a AccountInfo) -> Result<RefMut<'a, Product>, ProgramError> {
+        let account_data: RefMut<'a, [u8]>;
+        let state: RefMut<'a, Self>;
+
+        account_data = RefMut::map(product_account.try_borrow_mut_data().unwrap(), |data| *data);
+
+        state = RefMut::map(account_data, |data| {
+            from_bytes_mut(cast_slice_mut::<u8, u8>(try_cast_slice_mut(data).unwrap()))
+        });
+        Ok(state)
+    }
+}
+
+#[cfg(target_endian = "little")]
+unsafe impl Zeroable for Product {}
+
+#[cfg(target_endian = "little")]
+unsafe impl Pod for Product {}
+
+
+#[derive(Copy, Clone)]
+struct AccKeyU64
+{
+  pub val: [u64;4]
+}
+
+#[cfg(target_endian = "little")]
+unsafe impl Zeroable for AccKeyU64 {}
+
+#[cfg(target_endian = "little")]
+unsafe impl Pod for AccKeyU64 {}
+
+impl AccKey
+{
+  pub fn is_valid( &self ) -> bool  {
+    match load::<AccKeyU64>( &self.val ) {
+      Ok(k8) => k8.val[0]!=0 || k8.val[1]!=0 || k8.val[2]!=0 || k8.val[3]!=0,
+      Err(_) => false,
+    }
+  }
+}
+
+fn load<T: Pod>(data: &[u8]) -> Result<&T, PodCastError> {
+    let size = size_of::<T>();
+    if data.len() >= size {
+      Ok(from_bytes(cast_slice::<u8, u8>(try_cast_slice(
+        &data[0..size],
+      )?)))
+    } else {
+      Err(PodCastError::SizeMismatch)
+    }
+  }

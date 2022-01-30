@@ -16,7 +16,13 @@
     "react-dom": "^17.0.2",
     "react-scripts": "4.0.3",
     "typescript": "^4.5.4",
-    "web-vitals": "^2.1.2"
+    "web-vitals": "^2.1.2",
+    "@mui/material": "^5.3.1",
+    "@emotion/react": "^11.7.1",
+    "@emotion/styled": "^11.6.0",
+    "cron": "^1.8.2",
+    "recharts": "^2.1.8",
+    "react-loader-spinner": "^5.1.0"
   },
   "scripts": {
     "start": "react-scripts start",
