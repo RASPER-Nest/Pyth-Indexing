@@ -9,17 +9,17 @@ Install these dependencies
 
 
 ## Solana CLI
-Set your config to be on devnet: Run 'solana config set --url devnet'
+Set your config to be on devnet: Run `solana config set --url devnet`
 
 ## Anchor
-Run 'anchor build' in the root folder
+Run `anchor build` in the root folder
 
 ### Important
 Check that the generated key by the anchor build is the same as in the lib.rs, Anchor.toml and App.js files. If not then update them with the generated key.
 
-Run 'solana address -k target/deploy/pyth_indexing-keypair.json' to get the generated key.
+Run `solana address -k target/deploy/pyth_indexing-keypair.json` to get the generated key.
 
 Deploy the program with the provided command from the anchor build.
 
 ## React
-Change into the /app directory and run 'npm install'. Then run 'npm start'.
+Change into the /app directory and run `npm install`. Then run `npm start`.
