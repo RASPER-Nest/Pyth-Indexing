@@ -1,296 +1,59 @@
-import './App.css';
-import { useState, React } from 'react';
-import { Connection, PublicKey, clusterApiUrl, Cluster } from '@solana/web3.js';
-import { Program, Provider, web3 } from '@project-serum/anchor';
-import idl from './idl.json';
-import './PythTypes.ts';
-import { PythConnection } from './PythConnection'
-import { getPythProgramKeyForCluster } from './cluster'
+import React, { useEffect, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { Connection, PublicKey, Cluster, clusterApiUrl } from "@solana/web3.js";
+import { Program, Provider, web3 } from "@project-serum/anchor";
 import { Audio } from 'react-loader-spinner';
-
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
+import './PythTypes.ts';
 
-import { getPhantomWallet } from '@solana/wallet-adapter-wallets';
-import { useWallet, WalletProvider, ConnectionProvider } from '@solana/wallet-adapter-react';
-import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-require('@solana/wallet-adapter-react-ui/styles.css');
+import idl from "./idl.json";
+import kp from "./keypair.json";
+import { PythConnection } from './PythConnection'
+import { getPythProgramKeyForCluster } from './cluster'
+import twitterLogo from "./assets/twitter-logo.svg";
+import indexaroLogo from "./assets/indexaro_logo_v3_nobackground.png"
+import "./App.css";
+import { green } from "@mui/material/colors";
 
-const wallets = [ getPhantomWallet() ]
+// Constants
+const TWITTER_HANDLE = "solana";
+const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
 
+// SystemProgram is a reference to the Solana runtime!
 const { SystemProgram, Keypair } = web3;
-const storageAccountIndex = Keypair.generate();
 
-const opts = {
-  preflightCommitment: "processed"
-}
-const programIDString = "CxqWzWVdHG9YffvaRUaMnbbeyb7XoHNtxzLNaUpkoyyx";
-const programID = new PublicKey(programIDString);
+// retreiving permanent app keypair
+const arr = Object.values(kp._keypair.secretKey);
+const secret = new Uint8Array(arr);
+const baseAccount = web3.Keypair.fromSecretKey(secret); //web3.Keypair.generate(); //web3.Keypair.fromSecretKey(secret);
 
-const SOLANA_CLUSTER_NAME: Cluster = 'devnet'
-const connection = new Connection(clusterApiUrl(SOLANA_CLUSTER_NAME))
-const pythPublicKey = getPythProgramKeyForCluster(SOLANA_CLUSTER_NAME)
+// Get our program's id from the IDL file.
+const programID = new PublicKey(idl.metadata.address);
 
-const pythConnection = new PythConnection(connection, pythPublicKey)
+// Select network.
+const SOLANA_CLUSTER_NAME: Cluster = "devnet"
 
+// Set our network.
+const network = clusterApiUrl(SOLANA_CLUSTER_NAME);
+
+// Create cron job to update index fund price
 var CronJob = require('cron').CronJob;
 
+// Configure Pyth Network access
+const connection = new Connection(network)
+const pythPublicKey = getPythProgramKeyForCluster(SOLANA_CLUSTER_NAME)
+const pythConnection = new PythConnection(connection, pythPublicKey);
+
+// Controls how we want to acknowledge when a transaction is "done".
+const opts = {
+  preflightCommitment: "processed",
+};
+
+// Graph update global var
+// TODO: do not use global variables. 
 var priceIterations = 0;
 var pythPriceArray = [];
-
-function App() {
-  const [inputAssetName, setInputAssetName] = useState('');
-  const [indexName, setIndexName] = useState('');
-  const [readBackIndexName, setReadBackIndexName] = useState('');
-  const [readBackPubKeys, setReadBackPubKeys] = useState([]);
-  const [avgPriceChartData, setAvgPriceChartData] = useState([{price: null, timestamp: null}]);
-  const [dataLoadingStatus, setDataLoadingStatus] = useState(0);
-  const wallet = useWallet();
-
-  async function getProvider() {
-    /* create the provider and return it to the caller */
-    /* network set to local network for now */
-    // localhost:
-    // const network = "http://127.0.0.1:8899";
-    // devnet:    
-    const network = clusterApiUrl('devnet');
-    const connection = new Connection(network, opts.preflightCommitment);
-
-    const provider = new Provider(
-      connection, wallet, opts.preflightCommitment,
-    );
-    return provider;
-  }
-
-  function confirmAssetSelection() {
-    console.log("These are the selected assets: \n", inputAssetName.map(element => element.productPubKey));
-  }
-
-  async function initIndexStorage() {   
-    const provider = await getProvider();
-    /* create the program interface combining the idl, program ID, and provider */
-    const program = new Program(idl, programID, provider);
-    try {
-      /* interact with the program via rpc */
-      await program.rpc.initIndexStorage({
-        accounts: {
-          storageAccount: storageAccountIndex.publicKey,
-          user: provider.wallet.publicKey,
-          systemProgram: SystemProgram.programId,
-        },
-        signers: [storageAccountIndex]
-      });
-    } catch (err) {
-        console.log("Transaction error: ", err);
-      }
-  }
-
-  async function nameAndPubkeysIndex(){
-    if(!indexName) return
-    const provider = await getProvider();
-    const program = new Program(idl, programID, provider);
-    var pubkeys = inputAssetName.map(element => element.productPubKey);
-    await program.rpc.nameAndPubkeysIndex(
-      indexName,
-      pubkeys,
-      {accounts: {
-        storageAccount: storageAccountIndex.publicKey,
-      },
-    });
-
-    const storage_account = await program.account.indexStorageAccount.fetch(storageAccountIndex.publicKey);
-    console.log('account: ', storage_account);
-    setReadBackIndexName(storage_account.indexName);
-    setReadBackPubKeys(storage_account.pubKeys);
-  }
-
-  function getPriceUpdates(){
-    jobEvery30Sec.start();
-    setDataLoadingStatus(1);
-  }
-
-  const LoadingIndicator = props => {
-    if(dataLoadingStatus === 0) {
-      return(null)
-    }
-    else if(dataLoadingStatus === 1) {
-      return(
-        <div>
-          <h3>Loading ...</h3>
-          {
-            <div
-            style={{
-              width: "100%",
-              height: "100",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center"
-            }}
-            >
-              <Audio type="ThreeDots" color="#6633cc" height="100" width="100" />
-            </div>
-          }
-        </div>
-      )
-    }
-    else {
-      return(
-        <h3>There it is! You will get a price update every 30 seconds.</h3>
-      )
-    }
-  }
-
-  var matchedPriceUpdateIterations = 2 * readBackPubKeys.length;
-  var priceIterationsKept = 2 * matchedPriceUpdateIterations;
-
-  // Calc a simple price average
-  // ToDo: Make use of confidence
-  function calcPriceAverage(priceArray) {
-    var priceSum = 0;
-    for(var i = 0; i < priceArray.length; i++) {
-      priceSum = priceSum + priceArray[i].price;
-    }
-    return (priceSum / priceArray.length);
-  }
-
-  var jobEvery30Sec = new CronJob('*/30 * * * * *', function() {
-    pythConnection.onPriceChange((product, price) => {
-      if (price.price && price.confidence) {
-        readBackPubKeys.find(element => {
-          if (element.includes(price.productAccountKey.toString())) {
-            priceIterations++;
-            pythPriceArray.push(price);
-            if( priceIterations === matchedPriceUpdateIterations ) {
-              // ToDo: Check if every product has been updated
-              pythConnection.stop();
-              priceIterations = 0;
-              setDataLoadingStatus(2);
-              setAvgPriceChartData(avgPriceChartData => [...avgPriceChartData, {price: Number(calcPriceAverage(pythPriceArray).toFixed(2)), timestamp: new Date()}])
-              // Keep array at fixed size
-              if( pythPriceArray.length > priceIterationsKept ) {
-                pythPriceArray.splice(0, matchedPriceUpdateIterations);
-              }
-              return true;
-            }
-            return true;
-          }
-        return (null)
-      })
-    
-      } else {
-        console.log(`${product.symbol}: price currently unavailable`)
-      }
-    })
-
-    pythConnection.start();
-
-  }, null, false, 'America/Los_Angeles');
-
-  if (!wallet.connected) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop:'100px' }}>
-        <WalletMultiButton />
-      </div>
-    )
-  } else {
-    return (
-      <div className="App">
-          <h1>Create your own index fund</h1>
-          <h2>Initialize the program and create some storage space on the Solana blockchain</h2>
-          {
-            <button onClick={initIndexStorage}>Initialize</button>
-          }
-          <h2>Select your assets</h2>
-          {
-            <div style={{ display: 'flex', justifyContent: 'center'}}> 
-              <Autocomplete
-                multiple
-                options={pythAssets}
-                getOptionLabel={(option) => option.symbol}
-                onChange={(event, value) => {
-                  setInputAssetName(value)
-                }}
-                sx={{ width: 300 }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    variant="standard"
-                    label="Assets"
-                  />
-                )}
-              />
-            </div>
-          }
-          {
-            <div>
-              {
-                <button onClick={confirmAssetSelection}>Confirm asset selection</button>
-              }
-            </div>
-          }
-          <h2>Give your index a name and save your asset selection on the Solana blockchain</h2>
-          <div>
-            <input
-              placeholder="Give your index a name"
-              onChange={e => setIndexName(e.target.value)}
-              value={indexName}
-            />
-            <button onClick={nameAndPubkeysIndex}>Save</button>
-          </div>
-          <h2>Start the price update</h2>
-          {
-            <div>
-              {
-                <button onClick={getPriceUpdates}>Update prices</button>
-              }
-              {
-                <div>
-                  <LoadingIndicator/>
-                </div>
-              }
-            </div>
-          }
-          <h2>Have a look at the price development of your fund</h2>
-          {
-            <div style={{ display: 'flex', justifyContent: 'center'}}>
-              <LineChart
-                width={500}
-                height={300}
-                data={avgPriceChartData}
-                margin={{
-                  top: 5,
-                  right: 30,
-                  left: 20,
-                  bottom: 5,
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="timestamp" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line name="USD" type="monotone" dataKey="price" stroke="#6633cc" activeDot={{ r: 8 }} />
-              </LineChart>
-            </div>
-          }
-      </div>
-    );
-  }
-}
-
-const AppWithProvider = () => (
-  <ConnectionProvider endpoint="http://127.0.0.1:8899">
-    <WalletProvider wallets={wallets} autoConnect>
-      <WalletModalProvider>
-        <App />
-      </WalletModalProvider>
-    </WalletProvider>
-  </ConnectionProvider>
-)
-
-export default AppWithProvider; 
-
 
 // Pyth assets
 const pythAssets = [
@@ -326,3 +89,374 @@ const pythAssets = [
   { symbol: 'FX.EUR/USD', productPubKey: 'EWxGfxoPQSNA2744AYdAKmsQZ8F9o9M7oKkvL3VM1dko' }
   
 ];
+
+const App = () => {
+  const [inputAssetName, setInputAssetName] = useState('');
+  const [indexName, setIndexName] = useState('');
+  const [walletAddress, setWalletAddress] = useState(null);
+  const [inputValue, setInputValue] = useState("");
+  const [indexList, setIndexList] = useState([]);
+  const [readBackIndexName, setReadBackIndexName] = useState('');
+  const [readBackPubKeys, setReadBackPubKeys] = useState([]);
+  const [dataLoadingStatus, setDataLoadingStatus] = useState(0);
+  const [avgPriceChartData, setAvgPriceChartData] = useState([{price: null, timestamp: null}]);
+
+  useEffect(() => {
+    const onLoad = async () => {
+      await checkIfWalletConnected();
+    };
+
+    window.addEventListener("load", onLoad);
+    return () => window.removeEventListener("load", onLoad);
+  }, []);
+
+  useEffect(() => {
+    if (walletAddress) {
+      console.log("Fetching INDEX list...");
+      // Get index list from Solana, then set to state
+      getIndexList();
+    }
+  }, [walletAddress]);
+
+  const getProvider = () => {
+    const connection = new Connection(network, opts.preflightCommitment);
+    const provider = new Provider(
+      connection,
+      window.solana,
+      opts.preflightCommitment
+    );
+    return provider;
+  };
+
+  const getIndexList = async () => {
+    try {
+      const provider = getProvider();
+      const program = new Program(idl, programID, provider);
+      const account = await program.account.indexStorageAccount.fetch(
+        baseAccount.publicKey
+      );
+      console.log("Got the account ", account);
+      setIndexList(account);
+    } catch (error) {
+      console.log("Error in getIndexList: ", error);
+      setIndexList(null);
+    }
+  };
+
+  const initIndexStorage = async () => {
+    try {
+      const provider = getProvider();
+      const program = new Program(idl, programID, provider);
+      console.log("ping!");
+
+      await program.rpc.initIndexStorage({
+        accounts: {
+          storageAccount: baseAccount.publicKey,
+          user: provider.wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        },
+        signers: [baseAccount],
+      });
+
+      console.log(
+        "Created new BaseAccount w/ address:",
+        baseAccount.publicKey.toString()
+      );
+      await getIndexList();
+    } catch (error) {
+      console.log("Error creating BaseAccount account:", error);
+    }
+  };
+
+  const checkIfWalletConnected = async () => {
+    try {
+      const { solana } = window;
+      if (solana) {
+        if (solana.isPhantom) {
+          console.log("Phantom wallet detected!");
+
+          const response = await solana.connect({ onlyIfTrusted: true });
+          console.log("Connected wallet:", response.publicKey.toString());
+
+          setWalletAddress(response.publicKey.toString());
+        }
+      } else {
+        alert("No Solana wallet detected - go get yourself a Phantom wallet!");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const connectWallet = async () => {
+    const { solana } = window;
+
+    if (solana) {
+      const response = await solana.connect();
+      console.log("Connected wallet:", response.publicKey.toString());
+      setWalletAddress(response.publicKey.toString());
+    }
+  };
+
+  const onInputChange = (event) => {
+    const { value } = event.target;
+    setInputValue(value);
+  };
+
+  const nameAndPubkeysIndex = async () => {
+    if (indexName.length === 0) {
+      console.log("No INDEX link provided!");
+      return;
+    }
+    setInputValue("");
+    console.log("INDEX link:", indexName);
+    
+
+    try {
+      const provider = getProvider();
+      const program = new Program(idl, programID, provider);
+      var pubkeys = inputAssetName.map(element => element.productPubKey);
+
+      await program.rpc.nameAndPubkeysIndex(
+        indexName, 
+        pubkeys, 
+        {
+        accounts: {
+          storageAccount: baseAccount.publicKey,
+          user: provider.wallet.publicKey,
+        },
+      });
+
+      console.log("INDEX successfully sent to program!", indexName, pubkeys);
+      const storage_account = await program.account.indexStorageAccount.fetch(baseAccount.publicKey);
+      console.log('Account : ', storage_account);
+      setReadBackIndexName(storage_account.indexName);
+      setReadBackPubKeys(storage_account.pubKeys);
+      await getIndexList();
+    } catch (error) {
+      console.log("Error sending INDEX:", error);
+    }
+  };
+
+  const shortenAddress = (address) => {
+    if (!address) return "";
+    return address.substring(0, 4) + "....." + address.substring(40);
+  };
+
+  // Calc a price average
+  // TODO: Make use of confidence
+  const calcPriceAverage = (priceArray) => {
+    var priceSum = 0;
+    if (priceArray.length === 0) return 0;
+    for(var i = 0; i < priceArray.length; i++) {
+      priceSum = priceSum + priceArray[i].price;
+    }
+    return (priceSum / priceArray.length);
+  };
+
+  const LoadingIndicator = props => {
+    if(dataLoadingStatus === 0) {
+      return(null)
+    }
+    else if(dataLoadingStatus === 1) {
+      return(
+        <div>
+          <h3>Loading ...</h3>
+          {
+            <div
+            style={{
+              width: "100%",
+              height: "100",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center"
+            }}
+            >
+              <Audio type="ThreeDots" color="#6633cc" height="100" width="100" />
+            </div>
+          }
+        </div>
+      )
+    }
+    else {
+      return(
+        <h3>There it is! You will get a price update every 30 seconds.</h3>
+      )
+    }
+  }
+
+  const getPriceUpdates = async () => {
+    var matchedPriceUpdateIterations = 2 * readBackPubKeys.length;
+    var priceIterationsKept = 2 * matchedPriceUpdateIterations;
+    
+    var jobEvery30Sec = new CronJob('*/30 * * * * *', function() {
+      pythConnection.onPriceChange((product, price) => {
+        if (price.price && price.confidence) {
+          readBackPubKeys.find(element => {
+            if (element.includes(price.productAccountKey.toString())) {
+              priceIterations++;
+              pythPriceArray.push(price);
+              if( priceIterations === matchedPriceUpdateIterations ) {
+                // ToDo: Check if every product has been updated
+                pythConnection.stop();
+                priceIterations = 0;
+                setDataLoadingStatus(2);
+                setAvgPriceChartData(avgPriceChartData => [...avgPriceChartData, {price: Number(calcPriceAverage(pythPriceArray).toFixed(2)), timestamp: new Date()}])
+                // Keep array at fixed size
+                if( pythPriceArray.length > priceIterationsKept ) {
+                  pythPriceArray.splice(0, matchedPriceUpdateIterations);
+                }
+                return true;
+              }
+              return true;
+            }
+          return (null)
+        })
+      
+        } else {
+          console.log(`${product.symbol}: price currently unavailable`)
+        }
+      })
+  
+      pythConnection.start();
+  
+    }, null, false, 'America/Los_Angeles');
+
+    jobEvery30Sec.start();
+    setDataLoadingStatus(1);
+  }
+
+  const renderNotConnectedContainer = () => (
+    <button
+      className="cta-button connect-wallet-button"
+      onClick={connectWallet}
+    >
+      Connect Wallet
+    </button>
+  );
+
+  const renderConnectedContainer = () => {
+    if (indexList == null) {
+      return (
+        <div className="connected-container">
+          <button
+            className="cta-button submit-index-button"
+            onClick={initIndexStorage}
+          >
+            Do One-Time Initialization For Storage Program Account
+          </button>
+        </div>
+      );
+    } else {
+      return (
+        <div>
+          {/* <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              sendIndex();
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Enter INDEX link here"
+              value={inputValue}
+              onChange={onInputChange}
+            />
+            <button type="submit" className="cta-button submit-index-button">
+              Submit
+            </button>
+          </form> */}
+          <div style={{display: 'flex', justifyContent: 'center'}}> 
+            <Autocomplete
+                multiple
+                options={pythAssets}
+                getOptionLabel={(option) => option.symbol}
+                onChange={(event, value) => {
+                  setInputAssetName(value)
+                }}
+                sx={{ width: 300 }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="standard"
+                    label="Assets"
+                  />
+                )}
+              />
+          </div>
+          <div>
+            <input
+              placeholder="Give your index a name"
+              onChange={e => setIndexName(e.target.value)}
+              value={indexName}
+            />
+            <button onClick={nameAndPubkeysIndex}>Save</button>
+          </div>
+          <h2>Start the price update</h2>
+            <div>
+              {
+                <button onClick={getPriceUpdates}>Update prices</button>
+              }
+              {
+                <div>
+                  <LoadingIndicator/>
+                </div>
+              }
+            </div>
+          <h2>Have a look at the price development of your fund</h2>
+          {
+            <div style={{ display: 'flex', justifyContent: 'center'}}>
+              <LineChart
+                width={500}
+                height={300}
+                data={avgPriceChartData}
+                margin={{
+                  top: 5,
+                  right: 30,
+                  left: 20,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="timestamp" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line name="USD" type="monotone" dataKey="price" stroke="#6633cc" activeDot={{ r: 8 }} />
+              </LineChart>
+            </div>
+          }
+          <div className="index-grid">
+            
+          </div>
+        </div>
+      );
+    }
+  };
+
+  return (
+    <div className="App">
+      <div className={walletAddress ? "authed-container" : "container"}>
+        <div className="header-container">
+          <img alt="Indexaro Logo" className="indexaro-logo" src={indexaroLogo} />
+          <p className="sub-text">✨ Create your own cryptoindex fund. ✨</p>
+          {/* Render Connect Wallet btn here if no wallet connected */}
+          {!walletAddress && renderNotConnectedContainer()}
+          {/* Render INDEXs if wallet connected */}
+          {walletAddress && renderConnectedContainer()}
+        </div>
+        <div className="footer-container">
+          {/* <img alt="Twitter Logo" className="twitter-logo" src={twitterLogo} />
+          <a
+            className="footer-text"
+            href={TWITTER_LINK}
+            target="_blank"
+            rel="noreferrer"
+          >{`built on @${TWITTER_HANDLE}`}</a> */}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;
