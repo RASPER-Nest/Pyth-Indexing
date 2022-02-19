@@ -5,61 +5,45 @@
     {
       "name": "initIndexStorage",
       "accounts": [
-        { "name": "storageAccount", "isMut": true, "isSigner": true },
-        { "name": "user", "isMut": true, "isSigner": true },
-        { "name": "systemProgram", "isMut": false, "isSigner": false }
+        {
+          "name": "storageAccount",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
       ],
       "args": []
     },
     {
       "name": "nameAndPubkeysIndex",
       "accounts": [
-        { "name": "storageAccount", "isMut": true, "isSigner": false }
+        {
+          "name": "storageAccount",
+          "isMut": true,
+          "isSigner": false
+        }
       ],
       "args": [
-        { "name": "fIndexName", "type": "string" },
-        { "name": "fPubKeys", "type": { "vec": "string" } }
+        {
+          "name": "fIndexName",
+          "type": "string"
+        },
+        {
+          "name": "fPubKeys",
+          "type": {
+            "vec": "string"
+          }
+        }
       ]
-    },
-    {
-      "name": "updateIndex",
-      "accounts": [
-        { "name": "pythPrice", "isMut": false, "isSigner": false },
-        { "name": "storageAccount", "isMut": true, "isSigner": false }
-      ],
-      "args": []
-    },
-    {
-      "name": "initializeStorageAccount",
-      "accounts": [
-        { "name": "storageAccount", "isMut": true, "isSigner": true },
-        { "name": "user", "isMut": true, "isSigner": true },
-        { "name": "systemProgram", "isMut": false, "isSigner": false }
-      ],
-      "args": []
-    },
-    {
-      "name": "addPythSymbol",
-      "accounts": [
-        { "name": "pythProdAcnt", "isMut": false, "isSigner": false },
-        { "name": "pythPriceAcnt", "isMut": false, "isSigner": false },
-        { "name": "storageAccount", "isMut": true, "isSigner": false }
-      ],
-      "args": [{ "name": "symbol", "type": "string" }]
-    },
-    {
-      "name": "showPythPrice",
-      "accounts": [
-        { "name": "pythAccount", "isMut": false, "isSigner": false }
-      ],
-      "args": []
-    },
-    {
-      "name": "showPythMapping",
-      "accounts": [
-        { "name": "pythAccount", "isMut": false, "isSigner": false }
-      ],
-      "args": []
     }
   ],
   "accounts": [
@@ -68,76 +52,39 @@
       "type": {
         "kind": "struct",
         "fields": [
-          { "name": "indexName", "type": "string" },
-          { "name": "pubKeys", "type": { "vec": "string" } },
-          { "name": "prices", "type": { "vec": "i32" } }
-        ]
-      }
-    },
-    {
-      "name": "StorageAccount",
-      "type": {
-        "kind": "struct",
-        "fields": [{ "name": "pythSymbols", "type": { "vec": "string" } }]
-      }
-    },
-    {
-      "name": "PythPrice",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          { "name": "symbol", "type": "string" },
-          { "name": "expo", "type": "i32" },
-          { "name": "price", "type": "i64" },
-          { "name": "conf", "type": "u64" },
-          { "name": "status", "type": { "defined": "PriceStatus" } }
+          {
+            "name": "indices",
+            "type": {
+              "vec": {
+                "defined": "IndexAccount"
+              }
+            }
+          }
         ]
       }
     }
   ],
   "types": [
     {
-      "name": "PriceStatus",
+      "name": "IndexAccount",
       "type": {
-        "kind": "enum",
-        "variants": [
-          { "name": "Unknown" },
-          { "name": "Trading" },
-          { "name": "Halted" },
-          { "name": "Auction" }
-        ]
-      }
-    },
-    {
-      "name": "CorpAction",
-      "type": { "kind": "enum", "variants": [{ "name": "NoCorpAct" }] }
-    },
-    {
-      "name": "PriceType",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          { "name": "Unknown" },
-          { "name": "Price" },
-          { "name": "TWAP" },
-          { "name": "Volatility" }
-        ]
-      }
-    },
-    {
-      "name": "AccountType",
-      "type": {
-        "kind": "enum",
-        "variants": [
-          { "name": "Unknown" },
-          { "name": "Mapping" },
-          { "name": "Product" },
-          { "name": "Price" }
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "indexName",
+            "type": "string"
+          },
+          {
+            "name": "pubKeys",
+            "type": {
+              "vec": "string"
+            }
+          }
         ]
       }
     }
   ],
-    "metadata": {
-      "address": "CxqWzWVdHG9YffvaRUaMnbbeyb7XoHNtxzLNaUpkoyyx"
-    }
+  "metadata": {
+    "address": "CxqWzWVdHG9YffvaRUaMnbbeyb7XoHNtxzLNaUpkoyyx"
+  }
 }

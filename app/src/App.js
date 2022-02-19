@@ -11,14 +11,8 @@ import idl from "./idl.json";
 import kp from "./keypair.json";
 import { PythConnection } from './PythConnection'
 import { getPythProgramKeyForCluster } from './cluster'
-import twitterLogo from "./assets/twitter-logo.svg";
 import indexaroLogo from "./assets/indexaro_logo_v3_nobackground.png"
 import "./App.css";
-import { green } from "@mui/material/colors";
-
-// Constants
-const TWITTER_HANDLE = "solana";
-const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
 
 // SystemProgram is a reference to the Solana runtime!
 const { SystemProgram, Keypair } = web3;
@@ -26,7 +20,7 @@ const { SystemProgram, Keypair } = web3;
 // retreiving permanent app keypair
 const arr = Object.values(kp._keypair.secretKey);
 const secret = new Uint8Array(arr);
-const baseAccount = web3.Keypair.fromSecretKey(secret); //web3.Keypair.generate(); //web3.Keypair.fromSecretKey(secret);
+const baseAccount = Keypair.fromSecretKey(secret);
 
 // Get our program's id from the IDL file.
 const programID = new PublicKey(idl.metadata.address);
@@ -94,10 +88,8 @@ const App = () => {
   const [inputAssetName, setInputAssetName] = useState('');
   const [indexName, setIndexName] = useState('');
   const [walletAddress, setWalletAddress] = useState(null);
-  const [inputValue, setInputValue] = useState("");
   const [indexList, setIndexList] = useState([]);
-  const [readBackIndexName, setReadBackIndexName] = useState('');
-  const [readBackPubKeys, setReadBackPubKeys] = useState([]);
+  const [readBackIndices, setReadBackIndices] = useState([]);
   const [dataLoadingStatus, setDataLoadingStatus] = useState(0);
   const [avgPriceChartData, setAvgPriceChartData] = useState([{price: null, timestamp: null}]);
 
@@ -135,6 +127,7 @@ const App = () => {
       const account = await program.account.indexStorageAccount.fetch(
         baseAccount.publicKey
       );
+      console.log("Storage account: ", baseAccount.publicKey.toString());
       console.log("Got the account ", account);
       setIndexList(account);
     } catch (error) {
@@ -198,17 +191,11 @@ const App = () => {
     }
   };
 
-  const onInputChange = (event) => {
-    const { value } = event.target;
-    setInputValue(value);
-  };
-
   const nameAndPubkeysIndex = async () => {
     if (indexName.length === 0) {
       console.log("No INDEX link provided!");
       return;
     }
-    setInputValue("");
     console.log("INDEX link:", indexName);
     
 
@@ -230,17 +217,11 @@ const App = () => {
       console.log("INDEX successfully sent to program!", indexName, pubkeys);
       const storage_account = await program.account.indexStorageAccount.fetch(baseAccount.publicKey);
       console.log('Account : ', storage_account);
-      setReadBackIndexName(storage_account.indexName);
-      setReadBackPubKeys(storage_account.pubKeys);
+      setReadBackIndices(storage_account.indices);
       await getIndexList();
     } catch (error) {
       console.log("Error sending INDEX:", error);
     }
-  };
-
-  const shortenAddress = (address) => {
-    if (!address) return "";
-    return address.substring(0, 4) + "....." + address.substring(40);
   };
 
   // Calc a price average
@@ -286,13 +267,13 @@ const App = () => {
   }
 
   const getPriceUpdates = async () => {
-    var matchedPriceUpdateIterations = 2 * readBackPubKeys.length;
+    var matchedPriceUpdateIterations = 2 * readBackIndices[0].pubKeys.length;
     var priceIterationsKept = 2 * matchedPriceUpdateIterations;
     
     var jobEvery30Sec = new CronJob('*/30 * * * * *', function() {
       pythConnection.onPriceChange((product, price) => {
         if (price.price && price.confidence) {
-          readBackPubKeys.find(element => {
+          readBackIndices[0].pubKeys.find(element => {
             if (element.includes(price.productAccountKey.toString())) {
               priceIterations++;
               pythPriceArray.push(price);
