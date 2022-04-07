@@ -29,6 +29,23 @@ pub mod pyth_indexing {
         Ok(())
     }
 
+    pub fn delete_index(f_ctx: Context<InitIndex>, f_name_to_delete: String) -> ProgramResult {
+        let index_storage = &mut f_ctx.accounts.storage_account;
+
+        let name_to_delete = f_name_to_delete.clone();
+
+        if let Some(index_pos) = index_storage.indices.iter().position(|i| i.index_name == name_to_delete) {
+            index_storage.indices.remove(index_pos);
+            msg!("Index removed. New amount of indices: {:?}", index_storage.indices.len());
+        }
+        else {
+            msg!("Index not found!");
+            return Err(ProgramError::InvalidArgument);
+        }
+
+        Ok(())
+    }
+
 }
 
 // Init Index storage account

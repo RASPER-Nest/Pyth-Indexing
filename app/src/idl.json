@@ -44,6 +44,22 @@
           }
         }
       ]
+    },
+    {
+      "name": "deleteIndex",
+      "accounts": [
+        {
+          "name": "storageAccount",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "fNameToDelete",
+          "type": "string"
+        }
+      ]
     }
   ],
   "accounts": [

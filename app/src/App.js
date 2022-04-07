@@ -87,6 +87,7 @@ const pythAssets = [
 const App = () => {
   const [inputAssetName, setInputAssetName] = useState('');
   const [indexName, setIndexName] = useState('');
+  const [indexNameToDelete, setIndexNameToDelete] = useState('');
   const [walletAddress, setWalletAddress] = useState(null);
   const [indexList, setIndexList] = useState([]);
   const [readBackIndices, setReadBackIndices] = useState([]);
@@ -128,7 +129,8 @@ const App = () => {
         baseAccount.publicKey
       );
       console.log("Storage account: ", baseAccount.publicKey.toString());
-      console.log("Got the account ", account);
+      console.log("Got the account: ", account);
+      console.log("Current account size in bytes: ", roughSizeOfObject(account));
       setIndexList(account);
     } catch (error) {
       console.log("Error in getIndexList: ", error);
@@ -224,6 +226,37 @@ const App = () => {
     }
   };
 
+  const deleteIndex = async () => {
+    // if (indexName.length === 0) {
+    //   console.log("No INDEX link provided!");
+    //   return;
+    // }
+    // console.log("INDEX link:", indexName);
+    
+
+    try {
+      const provider = getProvider();
+      const program = new Program(idl, programID, provider);
+
+      await program.rpc.deleteIndex(
+        indexNameToDelete, 
+        {
+        accounts: {
+          storageAccount: baseAccount.publicKey,
+          user: provider.wallet.publicKey,
+        },
+      });
+
+      console.log("INDEX to delete successfully sent to program!", indexNameToDelete);
+      const storage_account = await program.account.indexStorageAccount.fetch(baseAccount.publicKey);
+      console.log('Account : ', storage_account);
+      setReadBackIndices(storage_account.indices);
+      await getIndexList();
+    } catch (error) {
+      console.log("Error sending INDEX to delete:", error);
+    }
+  };
+
   // Calc a price average
   // TODO: Make use of confidence
   const calcPriceAverage = (priceArray) => {
@@ -307,6 +340,41 @@ const App = () => {
     setDataLoadingStatus(1);
   }
 
+  // Helper function 
+  function roughSizeOfObject( object ) {
+
+    var objectList = [];
+    var stack = [ object ];
+    var bytes = 0;
+
+    while ( stack.length ) {
+        var value = stack.pop();
+
+        if ( typeof value === 'boolean' ) {
+            bytes += 4;
+        }
+        else if ( typeof value === 'string' ) {
+            bytes += value.length * 2;
+        }
+        else if ( typeof value === 'number' ) {
+            bytes += 8;
+        }
+        else if
+        (
+            typeof value === 'object'
+            && objectList.indexOf( value ) === -1
+        )
+        {
+            objectList.push( value );
+
+            for( var i in value ) {
+                stack.push( value[ i ] );
+            }
+        }
+    }
+    return bytes;
+}
+
   const renderNotConnectedContainer = () => (
     <button
       className="cta-button connect-wallet-button"
@@ -372,6 +440,15 @@ const App = () => {
               value={indexName}
             />
             <button onClick={nameAndPubkeysIndex}>Save</button>
+          </div>
+          <h2>Delete Index</h2>
+          <div>
+          <input
+              placeholder="Name of the index to be deleted"
+              onChange={e => setIndexNameToDelete(e.target.value)}
+              value={indexNameToDelete}
+            />
+            <button onClick={deleteIndex}>Save</button>
           </div>
           <h2>Start the price update</h2>
             <div>
