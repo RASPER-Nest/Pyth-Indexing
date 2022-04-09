@@ -5,6 +5,14 @@ import { Program, Provider, web3 } from "@project-serum/anchor";
 import { Audio } from 'react-loader-spinner';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
+
 import './PythTypes.ts';
 
 import idl from "./idl.json";
@@ -334,7 +342,19 @@ const App = () => {
     setDataLoadingStatus(1);
   }
 
-  // Helper function 
+  // Helper functions
+  // MUI Table
+  function createData(name, assets) {
+    return { name, assets };
+  }
+
+  var rows = [];
+
+  for( var idx in indexList.indices ) {
+    rows.push(createData(indexList.indices[idx].indexName, indexList.indices[idx].pubKeys));
+  }
+
+  // Size of object
   function roughSizeOfObject( object ) {
 
     var objectList = [];
@@ -393,22 +413,41 @@ const App = () => {
     } else {
       return (
         <div>
-          {/* <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              sendIndex();
-            }}
-          >
+          <h2>Available Indexes</h2>
+          <div style={{display: 'flex', justifyContent: 'center'}}>
+            <TableContainer style={{width: 500}} component={Paper}>
+              <Table aria-label="simple table">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Index Name</TableCell>
+                    <TableCell align="right">Assets</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow
+                      key={row.name}
+                      sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                    >
+                      <TableCell component="th" scope="row">
+                        {row.name}
+                      </TableCell>
+                      <TableCell align="right">{row.assets}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </div>
+          <div>
             <input
-              type="text"
-              placeholder="Enter INDEX link here"
-              value={inputValue}
-              onChange={onInputChange}
-            />
-            <button type="submit" className="cta-button submit-index-button">
-              Submit
-            </button>
-          </form> */}
+                placeholder="ID of the index to be deleted"
+                onChange={e => setIndexIDToDelete(e.target.value)}
+                value={indexIDToDelete}
+              />
+            <button onClick={deleteIndex}>Delete</button>
+          </div>
+          <h2>Create a new Index</h2>
           <div style={{display: 'flex', justifyContent: 'center'}}> 
             <Autocomplete
                 multiple
@@ -434,15 +473,6 @@ const App = () => {
               value={indexName}
             />
             <button onClick={createIndex}>Save</button>
-          </div>
-          <h2>Delete Index</h2>
-          <div>
-          <input
-              placeholder="ID of the index to be deleted"
-              onChange={e => setIndexIDToDelete(e.target.value)}
-              value={indexIDToDelete}
-            />
-            <button onClick={deleteIndex}>Delete</button>
           </div>
           <h2>Start the price update</h2>
             <div>
