@@ -24,7 +24,7 @@
       "args": []
     },
     {
-      "name": "nameAndPubkeysIndex",
+      "name": "createIndex",
       "accounts": [
         {
           "name": "storageAccount",
@@ -56,8 +56,8 @@
       ],
       "args": [
         {
-          "name": "fNameToDelete",
-          "type": "string"
+          "name": "fIdToDelete",
+          "type": "u32"
         }
       ]
     }
@@ -68,6 +68,10 @@
       "type": {
         "kind": "struct",
         "fields": [
+          {
+            "name": "idCounter",
+            "type": "u32"
+          },
           {
             "name": "indices",
             "type": {
@@ -86,6 +90,10 @@
       "type": {
         "kind": "struct",
         "fields": [
+          {
+            "name": "indexId",
+            "type": "u32"
+          },
           {
             "name": "indexName",
             "type": "string"

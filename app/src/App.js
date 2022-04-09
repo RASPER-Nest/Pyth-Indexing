@@ -87,7 +87,7 @@ const pythAssets = [
 const App = () => {
   const [inputAssetName, setInputAssetName] = useState('');
   const [indexName, setIndexName] = useState('');
-  const [indexNameToDelete, setIndexNameToDelete] = useState('');
+  const [indexIDToDelete, setIndexIDToDelete] = useState('');
   const [walletAddress, setWalletAddress] = useState(null);
   const [indexList, setIndexList] = useState([]);
   const [readBackIndices, setReadBackIndices] = useState([]);
@@ -193,7 +193,7 @@ const App = () => {
     }
   };
 
-  const nameAndPubkeysIndex = async () => {
+  const createIndex = async () => {
     if (indexName.length === 0) {
       console.log("No INDEX link provided!");
       return;
@@ -206,7 +206,7 @@ const App = () => {
       const program = new Program(idl, programID, provider);
       var pubkeys = inputAssetName.map(element => element.productPubKey);
 
-      await program.rpc.nameAndPubkeysIndex(
+      await program.rpc.createIndex(
         indexName, 
         pubkeys, 
         {
@@ -227,19 +227,13 @@ const App = () => {
   };
 
   const deleteIndex = async () => {
-    // if (indexName.length === 0) {
-    //   console.log("No INDEX link provided!");
-    //   return;
-    // }
-    // console.log("INDEX link:", indexName);
-    
 
     try {
       const provider = getProvider();
       const program = new Program(idl, programID, provider);
 
       await program.rpc.deleteIndex(
-        indexNameToDelete, 
+        indexIDToDelete, 
         {
         accounts: {
           storageAccount: baseAccount.publicKey,
@@ -247,7 +241,7 @@ const App = () => {
         },
       });
 
-      console.log("INDEX to delete successfully sent to program!", indexNameToDelete);
+      console.log("INDEX to delete successfully sent to program!", indexIDToDelete);
       const storage_account = await program.account.indexStorageAccount.fetch(baseAccount.publicKey);
       console.log('Account : ', storage_account);
       setReadBackIndices(storage_account.indices);
@@ -439,16 +433,16 @@ const App = () => {
               onChange={e => setIndexName(e.target.value)}
               value={indexName}
             />
-            <button onClick={nameAndPubkeysIndex}>Save</button>
+            <button onClick={createIndex}>Save</button>
           </div>
           <h2>Delete Index</h2>
           <div>
           <input
-              placeholder="Name of the index to be deleted"
-              onChange={e => setIndexNameToDelete(e.target.value)}
-              value={indexNameToDelete}
+              placeholder="ID of the index to be deleted"
+              onChange={e => setIndexIDToDelete(e.target.value)}
+              value={indexIDToDelete}
             />
-            <button onClick={deleteIndex}>Save</button>
+            <button onClick={deleteIndex}>Delete</button>
           </div>
           <h2>Start the price update</h2>
             <div>
