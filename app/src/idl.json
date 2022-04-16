@@ -1,114 +1,116 @@
 {
-  "version": "0.1.0",
-  "name": "pyth_indexing",
-  "instructions": [
-    {
-      "name": "initIndexStorage",
-      "accounts": [
+    "version": "0.1.0",
+    "name": "pyth_indexing",
+    "instructions": [
         {
-          "name": "storageAccount",
-          "isMut": true,
-          "isSigner": true
+            "name": "initIndexStorage",
+            "accounts": [
+                {
+                    "name": "storageAccount",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "user",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": []
         },
         {
-          "name": "user",
-          "isMut": true,
-          "isSigner": true
+            "name": "createIndex",
+            "accounts": [
+                {
+                    "name": "storageAccount",
+                    "isMut": true,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "fIndexName",
+                    "type": "string"
+                },
+                {
+                    "name": "fPubKeys",
+                    "type": {
+                        "vec": "string"
+                    }
+                }
+            ]
         },
         {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
+            "name": "deleteIndex",
+            "accounts": [
+                {
+                    "name": "storageAccount",
+                    "isMut": true,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "fIdsToDelete",
+                    "type": {
+                        "vec": "u32"
+                    }
+                }
+            ]
         }
-      ],
-      "args": []
-    },
-    {
-      "name": "createIndex",
-      "accounts": [
+    ],
+    "accounts": [
         {
-          "name": "storageAccount",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "fIndexName",
-          "type": "string"
-        },
-        {
-          "name": "fPubKeys",
-          "type": {
-            "vec": "string"
-          }
-        }
-      ]
-    },
-    {
-      "name": "deleteIndex",
-      "accounts": [
-        {
-          "name": "storageAccount",
-          "isMut": true,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "fIdToDelete",
-          "type": "u32"
-        }
-      ]
-    }
-  ],
-  "accounts": [
-    {
-      "name": "IndexStorageAccount",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "idCounter",
-            "type": "u32"
-          },
-          {
-            "name": "indices",
+            "name": "IndexStorageAccount",
             "type": {
-              "vec": {
-                "defined": "IndexAccount"
-              }
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "idCounter",
+                        "type": "u32"
+                    },
+                    {
+                        "name": "indices",
+                        "type": {
+                            "vec": {
+                                "defined": "IndexAccount"
+                            }
+                        }
+                    }
+                ]
             }
-          }
-        ]
-      }
-    }
-  ],
-  "types": [
-    {
-      "name": "IndexAccount",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "indexId",
-            "type": "u32"
-          },
-          {
-            "name": "indexName",
-            "type": "string"
-          },
-          {
-            "name": "pubKeys",
+        }
+    ],
+    "types": [
+        {
+            "name": "IndexAccount",
             "type": {
-              "vec": "string"
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "indexId",
+                        "type": "u32"
+                    },
+                    {
+                        "name": "indexName",
+                        "type": "string"
+                    },
+                    {
+                        "name": "pubKeys",
+                        "type": {
+                            "vec": "string"
+                        }
+                    }
+                ]
             }
-          }
-        ]
-      }
+        }
+    ],
+    "metadata": {
+      "address": "CxqWzWVdHG9YffvaRUaMnbbeyb7XoHNtxzLNaUpkoyyx"
     }
-  ],
-  "metadata": {
-    "address": "CxqWzWVdHG9YffvaRUaMnbbeyb7XoHNtxzLNaUpkoyyx"
-  }
 }

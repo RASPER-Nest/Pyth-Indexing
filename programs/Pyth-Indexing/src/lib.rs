@@ -33,16 +33,18 @@ pub mod pyth_indexing {
         Ok(())
     }
 
-    pub fn delete_index(f_ctx: Context<InitIndex>, f_id_to_delete: u32) -> ProgramResult {
+    pub fn delete_index(f_ctx: Context<InitIndex>, f_ids_to_delete: Vec<u32>) -> ProgramResult {
         let index_storage = &mut f_ctx.accounts.storage_account;
 
-        if let Some(index_pos) = index_storage.indices.iter().position(|i| i.index_id == f_id_to_delete) {
-            index_storage.indices.remove(index_pos);
-            msg!("Index removed. New amount of indices: {:?}", index_storage.indices.len());
-        }
-        else {
-            msg!("Index not found!");
-            return Err(ProgramError::InvalidArgument);
+        for id in f_ids_to_delete {
+            if let Some(index_pos) = index_storage.indices.iter().position(|i| i.index_id == id) {
+                index_storage.indices.remove(index_pos);
+                msg!("Index removed. New amount of indices: {:?}", index_storage.indices.len());
+            }
+            else {
+                msg!("Index not found!");
+                return Err(ProgramError::InvalidArgument);
+            }
         }
 
         Ok(())

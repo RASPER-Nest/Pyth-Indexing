@@ -5,13 +5,7 @@ import { Program, Provider, web3 } from "@project-serum/anchor";
 import { Audio } from 'react-loader-spinner';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
+import { DataGrid } from '@mui/x-data-grid';
 
 import './PythTypes.ts';
 
@@ -95,12 +89,12 @@ const pythAssets = [
 const App = () => {
   const [inputAssetName, setInputAssetName] = useState('');
   const [indexName, setIndexName] = useState('');
-  const [indexIDToDelete, setIndexIDToDelete] = useState('');
   const [walletAddress, setWalletAddress] = useState(null);
   const [indexList, setIndexList] = useState([]);
   const [readBackIndices, setReadBackIndices] = useState([]);
   const [dataLoadingStatus, setDataLoadingStatus] = useState(0);
   const [avgPriceChartData, setAvgPriceChartData] = useState([{price: null, timestamp: null}]);
+  const [selectedItems, setSelectedItems] = useState([]);
 
   useEffect(() => {
     const onLoad = async () => {
@@ -241,7 +235,7 @@ const App = () => {
       const program = new Program(idl, programID, provider);
 
       await program.rpc.deleteIndex(
-        indexIDToDelete, 
+        selectedItems, 
         {
         accounts: {
           storageAccount: baseAccount.publicKey,
@@ -249,7 +243,7 @@ const App = () => {
         },
       });
 
-      console.log("INDEX to delete successfully sent to program!", indexIDToDelete);
+      console.log("INDEX to delete successfully sent to program!", selectedItems);
       const storage_account = await program.account.indexStorageAccount.fetch(baseAccount.publicKey);
       console.log('Account : ', storage_account);
       setReadBackIndices(storage_account.indices);
@@ -344,15 +338,23 @@ const App = () => {
 
   // Helper functions
   // MUI Table
-  function createData(name, assets) {
-    return { name, assets };
+  const columnsGrid = [
+    { field: 'id', headerName: 'ID', width: 70 },
+    { field: 'indexName', headerName: 'Index Name', width: 140 },
+    { field: 'assetsPKs', headerName: 'Assets', width: 290} 
+  ]
+
+  function createGridData(f_id, f_name, f_assets) {
+    return { id: f_id, indexName: f_name, assetsPKs: f_assets };
   }
 
-  var rows = [];
+  var rowsGridGen = [];
 
   for( var idx in indexList.indices ) {
-    rows.push(createData(indexList.indices[idx].indexName, indexList.indices[idx].pubKeys));
+    rowsGridGen.push(createGridData(indexList.indices[idx].indexId, indexList.indices[idx].indexName, indexList.indices[idx].pubKeys));
   }
+
+  console.log("Rows grid gen:", rowsGridGen);
 
   // Size of object
   function roughSizeOfObject( object ) {
@@ -398,6 +400,22 @@ const App = () => {
     </button>
   );
 
+  const renderDeleteItems = () => {
+    if( selectedItems.length > 0 ){
+      console.log("Selected item: ", selectedItems)
+      return (
+        <div>
+          {/* <input
+            placeholder="ID of the index to be deleted"
+            onChange={e => setIndexIDToDelete(e.target.value)}
+            value={indexIDToDelete}
+          /> */}
+          <button onClick={deleteIndex}>Delete selected items.</button>
+        </div>
+      )
+    }
+  };
+
   const renderConnectedContainer = () => {
     if (indexList == null) {
       return (
@@ -414,38 +432,26 @@ const App = () => {
       return (
         <div>
           <h2>Available Indexes</h2>
-          <div style={{display: 'flex', justifyContent: 'center'}}>
-            <TableContainer style={{width: 500}} component={Paper}>
-              <Table aria-label="simple table">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Index Name</TableCell>
-                    <TableCell align="right">Assets</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rows.map((row) => (
-                    <TableRow
-                      key={row.name}
-                      sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                    >
-                      <TableCell component="th" scope="row">
-                        {row.name}
-                      </TableCell>
-                      <TableCell align="right">{row.assets}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+          <div style={{ height: 300, width: '50%', margin: 'auto' }}>
+            <div style={{ display: 'flex', height: '100%', justifyContent: 'center' }}>
+              <div style={{ flexGrow: 1 }}>
+                <DataGrid
+                  rows={rowsGridGen}
+                  columns={columnsGrid}
+                  pageSize={5}
+                  rowsPerPageOptions={[5]}
+                  checkboxSelection
+                  onSelectionModelChange={(ids) => {
+                    setSelectedItems(ids)
+                  }}
+                />
+              </div>
+            </div>
           </div>
           <div>
-            <input
-                placeholder="ID of the index to be deleted"
-                onChange={e => setIndexIDToDelete(e.target.value)}
-                value={indexIDToDelete}
-              />
-            <button onClick={deleteIndex}>Delete</button>
+            {
+              renderDeleteItems()
+            }
           </div>
           <h2>Create a new Index</h2>
           <div style={{display: 'flex', justifyContent: 'center'}}> 
